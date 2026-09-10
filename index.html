@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PROYECTO DUNATERRA - Control de Trámites</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    @media print { .no-print { display: none !important; } body { background-color: white !important; padding: 0 !important; } }
+    ::-webkit-scrollbar { height: 8px; width: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen p-4 md:p-6 lg:p-8">
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <div class="max-w-7xl mx-auto space-y-6">
+
+    <!-- HEADER -->
+    <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-xs font-bold uppercase tracking-wider mb-2">
+          <i class="fa-solid fa-hard-hat"></i> Gestión Técnica de Obra
+        </div>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+          PROYECTO DUNATERRA - Control de Trámites
+        </h1>
+        <p class="text-slate-500 text-sm mt-1">
+          Sincronizado en vivo con <span class="font-semibold text-emerald-700"><i class="fa-solid fa-file-excel"></i> Google Sheets</span>.
+        </p>
+      </div>
+
+      <!-- BOTONES -->
+      <div class="flex flex-wrap items-center gap-2 no-print">
+        <button type="button" onclick="cargarDatos()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 transition inline-flex items-center gap-2" title="Recargar datos">
+          <i class="fa-solid fa-rotate" id="icon-sync"></i> Sincronizar
+        </button>
+        <button type="button" onclick="abrirModalNuevoTramite()" class="bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition inline-flex items-center gap-2">
+          <i class="fa-solid fa-plus"></i> Nuevo Trámite
+        </button>
+        <button type="button" onclick="exportarCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition inline-flex items-center gap-2">
+          <i class="fa-solid fa-file-excel"></i> Exportar
+        </button>
+        <button type="button" onclick="window.print()" class="bg-slate-700 hover:bg-slate-800 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition inline-flex items-center gap-2">
+          <i class="fa-solid fa-print"></i> Imprimir
+        </button>
+      </div>
+    </header>
+
+    <!-- BANNER PROYECCIÓN GLOBAL -->
+    <div class="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 rounded-2xl p-6 text-white shadow-md border border-purple-800/40 relative overflow-hidden">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+        <div>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-bold uppercase tracking-wider mb-2">
+            <i class="fa-solid fa-chart-line text-purple-300"></i> Proyección Global de Gestión
+          </div>
+          <h2 class="text-xl md:text-2xl font-extrabold text-white tracking-tight">
+            Ventana Total del Proyecto
+          </h2>
+          <p class="text-purple-200/80 text-xs md:text-sm mt-1 max-w-xl">
+            Rango de tiempo desde el arranque del primer trámite hasta el cierre o vencimiento proyectado del último.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
+          <div class="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl p-3.5 text-center sm:text-left">
+            <span class="text-[10px] uppercase font-bold tracking-wider text-purple-200/70 block">Inicio Primer Trámite</span>
+            <div class="text-base font-extrabold text-white mt-1" id="banner-inicio-global">-</div>
+          </div>
+          <div class="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl p-3.5 text-center sm:text-left">
+            <span class="text-[10px] uppercase font-bold tracking-wider text-purple-200/70 block">Cierre / Vencimiento Último</span>
+            <div class="text-base font-extrabold text-white mt-1" id="banner-cierre-global">-</div>
+          </div>
+          <div class="bg-purple-500/20 backdrop-blur-md border border-purple-400/30 rounded-xl p-3.5 text-center sm:text-left">
+            <span class="text-[10px] uppercase font-bold tracking-wider text-purple-300 block">Duración Total Hábiles</span>
+            <div class="text-base font-extrabold text-purple-200 mt-1" id="banner-duracion-global">-</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPIS -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <span class="text-xs font-semibold text-slate-500 uppercase">Trámites Totales</span>
+        <div class="text-2xl font-black text-slate-800 mt-1" id="kpi-total">0</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-sm">
+        <span class="text-xs font-semibold text-emerald-700 uppercase">En Tiempo / Cerrados</span>
+        <div class="text-2xl font-black text-emerald-600 mt-1" id="kpi-entiempo">0</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/30 shadow-sm">
+        <span class="text-xs font-semibold text-rose-700 uppercase">Con Desfase</span>
+        <div class="text-2xl font-black text-rose-600 mt-1" id="kpi-desfasados">0</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-sky-200 bg-sky-50/30 shadow-sm">
+        <span class="text-xs font-semibold text-sky-700 uppercase">Desfase Promedio</span>
+        <div class="text-2xl font-black text-sky-700 mt-1" id="kpi-promedio-desfase">0 d</div>
+      </div>
+    </div>
+
+    <!-- CRONOGRAMA -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-200">
+        <h2 class="text-lg font-bold text-slate-900 inline-flex items-center gap-2">
+          <i class="fa-solid fa-timeline text-sky-600"></i> Línea del Tiempo
+        </h2>
+        <div class="flex flex-wrap items-center gap-3 text-xs">
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-purple-600 inline-block"></span> Ventana Global</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-sky-500 inline-block"></span> Plazo Compromiso</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-rose-500 inline-block"></span> Desfase</span>
+        </div>
+      </div>
+      <div class="overflow-x-auto pb-4">
+        <div id="gantt-container" class="min-w-[900px] space-y-4"></div>
+      </div>
+    </section>
+
+    <!-- TABLA -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <h2 class="text-lg font-bold text-slate-900 inline-flex items-center gap-2">
+          <i class="fa-solid fa-table-list text-sky-600"></i> Registro de Trámites
+        </h2>
+        <div class="text-xs text-slate-500 flex items-center gap-1" id="estado-carga">
+          <i class="fa-solid fa-circle-check text-emerald-500"></i> Conectado
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs md:text-sm">
+          <thead>
+            <tr class="bg-slate-800 text-white font-semibold">
+              <th class="py-3 px-3 rounded-l-lg">Trámite</th>
+              <th class="py-3 px-3">Dependencia</th>
+              <th class="py-3 px-3 text-center">F. Inicio</th>
+              <th class="py-3 px-3 text-center">Plazo (Háb.)</th>
+              <th class="py-3 px-3 text-center bg-slate-700">F. Compromiso</th>
+              <th class="py-3 px-3 text-center">F. Cierre Real</th>
+              <th class="py-3 px-3 text-center font-bold">Desfase</th>
+              <th class="py-3 px-3 text-center">Estatus</th>
+              <th class="py-3 px-3 text-center rounded-r-lg no-print">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-cuerpo" class="divide-y divide-slate-200"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- MODAL FORMULARIO -->
+  <div id="modal-tramite" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 relative">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+        <h3 id="modal-titulo" class="text-lg font-bold text-slate-900">Agregar Trámite</h3>
+        <button type="button" onclick="cerrarModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="form-tramite" onsubmit="guardarTramite(event)" class="space-y-4 text-xs md:text-sm">
+        <input type="hidden" id="tramite-id" value="" />
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nombre del Trámite *</label>
+          <input type="text" id="tramite-nombre" required placeholder="Ej. Régimen en Condominio" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500" />
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Dependencia *</label>
+            <input type="text" id="tramite-dependencia" required placeholder="Ej. JAPAC / CFE / Catastro" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Plazo (Días Hábiles) *</label>
+            <input type="number" id="tramite-plazo" min="1" max="365" required placeholder="Ej. 25" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Fecha de Inicio *</label>
+            <input type="date" id="tramite-inicio" required class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Fecha de Cierre Real</label>
+            <input type="date" id="tramite-cierre" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Observaciones / Notas</label>
+          <input type="text" id="tramite-notas" placeholder="Ej. Folio de ingreso 12345" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500" />
+        </div>
+
+        <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+          <button type="button" onclick="cerrarModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition">
+            Cancelar
+          </button>
+          <button type="submit" id="btn-guardar" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold shadow-sm transition inline-flex items-center gap-2">
+            <span>Guardar Trámite</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // URL DE TU GOOGLE APPS SCRIPT
+    const API_URL = "https://script.google.com/macros/s/AKfycbz9lwuXB5guo_WfQy5szqZtm6kmse-vYmnuN7nmMD9I8RYBnPN3Ik66ZYiMJOq4E3WC-Q/exec";
+
+    let tramites = [];
+
+    // --- CONEXIÓN API (GET) ---
+    async function cargarDatos() {
+      const estadoUI = document.getElementById("estado-carga");
+      const iconSync = document.getElementById("icon-sync");
+      
+      try {
+        if (iconSync) iconSync.classList.add("fa-spin");
+        estadoUI.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sky-500"></i> Cargando datos...`;
+
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        tramites = data.map(item => ({
+          ...item,
+          plazo: parseInt(item.plazo, 10) || 0
+        }));
+        estadoUI.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-500"></i> Sincronizado en vivo`;
+        
+        renderizarTodo();
+      } catch (error) {
+        console.error("Error al cargar datos:", error);
+        estadoUI.innerHTML = `<i class="fa-solid fa-circle-xmark text-rose-500"></i> Error de conexión`;
+      } finally {
+        if (iconSync) iconSync.classList.remove("fa-spin");
+      }
+    }
+
+    // --- CONEXIÓN API (POST) ---
+    async function guardarTramite(e) {
+      e.preventDefault();
+      const btnGuardar = document.getElementById("btn-guardar");
+      const idExistente = document.getElementById("tramite-id").value;
+      
+      const payload = {
+        id: idExistente || "T_" + Date.now(),
+        nombre: document.getElementById("tramite-nombre").value.trim(),
+        dependencia: document.getElementById("tramite-dependencia").value.trim(),
+        plazo: parseInt(document.getElementById("tramite-plazo").value, 10),
+        inicio: document.getElementById("tramite-inicio").value,
+        cierre: document.getElementById("tramite-cierre").value || "",
+        notas: document.getElementById("tramite-notas").value.trim() || ""
+      };
+
+      const action = idExistente ? "update" : "create";
+
+      try {
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`;
+
+        await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action, data: payload })
+        });
+
+        cerrarModal();
+        await cargarDatos();
+      } catch (err) {
+        alert("Error al guardar el trámite. Por favor intenta de nuevo.");
+        console.error(err);
+      } finally {
+        btnGuardar.disabled = false;
+        btnGuardar.innerHTML = `<span>Guardar Trámite</span>`;
+      }
+    }
+
+    async function eliminarTramite(id) {
+      if (!confirm("¿Estás seguro de eliminar este trámite?")) return;
+
+      try {
+        await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "delete", data: { id } })
+        });
+        await cargarDatos();
+      } catch (err) {
+        alert("Error al eliminar el trámite.");
+        console.error(err);
+      }
+    }
+
+    // --- CÁLCULOS DE DÍAS HÁBILES ---
+    function sumarDiasHabiles(fechaStr, diasHabiles) {
+      if (!fechaStr || isNaN(diasHabiles)) return null;
+      let [y, m, d] = fechaStr.split("-").map(Number);
+      let fecha = new Date(y, m - 1, d);
+      let agregados = 0;
+      while (agregados < diasHabiles) {
+        fecha.setDate(fecha.getDate() + 1);
+        let diaSemana = fecha.getDay();
+        if (diaSemana !== 0 && diaSemana !== 6) agregados++;
+      }
+      const anio = fecha.getFullYear();
+      const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+      const dia = String(fecha.getDate()).padStart(2, "0");
+      return `${anio}-${mes}-${dia}`;
+    }
+
+    function contarDiasHabilesNetos(fechaInicioStr, fechaFinStr) {
+      if (!fechaInicioStr || !fechaFinStr || fechaInicioStr === fechaFinStr) return 0;
+      let [y1, m1, d1] = fechaInicioStr.split("-").map(Number);
+      let [y2, m2, d2] = fechaFinStr.split("-").map(Number);
+      let dInicio = new Date(y1, m1 - 1, d1);
+      let dFin = new Date(y2, m2 - 1, d2);
+      let signo = dFin >= dInicio ? 1 : -1;
+      let menor = dFin >= dInicio ? new Date(dInicio) : new Date(dFin);
+      let mayor = dFin >= dInicio ? new Date(dFin) : new Date(dInicio);
+      let diasHabiles = 0;
+      let cursor = new Date(menor);
+      while (cursor < mayor) {
+        cursor.setDate(cursor.getDate() + 1);
+        let ds = cursor.getDay();
+        if (ds !== 0 && ds !== 6) diasHabiles++;
+      }
+      return diasHabiles * signo;
+    }
+
+    function formatearFecha(fechaStr) {
+      if (!fechaStr) return "-";
+      const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+      const [y, m, d] = fechaStr.split("-");
+      return `${parseInt(d, 10)}/${meses[parseInt(m, 10) - 1]}/${y}`;
+    }
+
+    function getHoyStr() {
+      const hoy = new Date();
+      return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+    }
+
+    // --- RENDERIZADO GENERAL ---
+    function renderizarTodo() {
+      const tbody = document.getElementById("tabla-cuerpo");
+      tbody.innerHTML = "";
+      const hoyStr = getHoyStr();
+
+      let total = tramites.length;
+      let enTiempoCount = 0;
+      let desfasadosCount = 0;
+      let sumaDesfases = 0;
+      let fechaMinima = null;
+      let fechaMaxima = null;
+
+      const listaProcesada = tramites.map(t => {
+        const fechaCompromiso = sumarDiasHabiles(t.inicio, parseInt(t.plazo, 10));
+        let fechaComparar = t.cierre ? t.cierre : hoyStr;
+        let desfase = contarDiasHabilesNetos(fechaCompromiso, fechaComparar);
+
+        let esCerrado = Boolean(t.cierre);
+        let estatusBadge = "";
+
+        if (esCerrado) {
+          if (desfase > 0) {
+            estatusBadge = `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">Cerrado c/ Desfase</span>`;
+            desfasadosCount++;
+          } else {
+            estatusBadge = `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Cerrado en Tiempo</span>`;
+            enTiempoCount++;
+          }
+        } else {
+          if (desfase > 0) {
+            estatusBadge = `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">En Proceso (Vencido)</span>`;
+            desfasadosCount++;
+          } else {
+            estatusBadge = `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-800">En Proceso</span>`;
+            enTiempoCount++;
+          }
+        }
+
+        sumaDesfases += (desfase > 0 ? desfase : 0);
+
+        [t.inicio, fechaCompromiso, t.cierre || hoyStr].forEach(fStr => {
+          if (fStr) {
+            if (!fechaMinima || fStr < fechaMinima) fechaMinima = fStr;
+            if (!fechaMaxima || fStr > fechaMaxima) fechaMaxima = fStr;
+          }
+        });
+
+        return { ...t, fechaCompromiso, desfase, esCerrado, estatusBadge };
+      });
+
+      if (tramites.length > 0) {
+        let globalInicioStr = null;
+        let globalFinStr = null;
+        tramites.forEach(t => {
+          const comp = sumarDiasHabiles(t.inicio, parseInt(t.plazo, 10));
+          const finItem = t.cierre ? t.cierre : (comp > hoyStr ? comp : hoyStr);
+          if (!globalInicioStr || t.inicio < globalInicioStr) globalInicioStr = t.inicio;
+          if (!globalFinStr || finItem > globalFinStr) globalFinStr = finItem;
+        });
+
+        const duracionGlobalHabiles = contarDiasHabilesNetos(globalInicioStr, globalFinStr);
+        document.getElementById("banner-inicio-global").innerText = formatearFecha(globalInicioStr);
+        document.getElementById("banner-cierre-global").innerText = formatearFecha(globalFinStr);
+        document.getElementById("banner-duracion-global").innerText = `${Math.abs(duracionGlobalHabiles)} Días Hábiles`;
+      }
+
+      listaProcesada.forEach(item => {
+        let desfaseHtml = "";
+        if (item.desfase > 0) {
+          desfaseHtml = `<span class="font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 block text-center">
+            <i class="fa-solid fa-triangle-exclamation mr-1"></i>+${item.desfase} d. retraso
+          </span>`;
+        } else if (item.desfase < 0) {
+          desfaseHtml = `<span class="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 block text-center">
+            <i class="fa-solid fa-circle-check mr-1"></i>${Math.abs(item.desfase)} d. a favor
+          </span>`;
+        } else {
+          desfaseHtml = `<span class="font-bold text-emerald-700 bg-emerald-50/70 px-2.5 py-1 rounded-lg border border-emerald-200 block text-center">
+            <i class="fa-solid fa-check mr-1"></i>0 (En tiempo)
+          </span>`;
+        }
+
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-200";
+        tr.innerHTML = `
+          <td class="py-3 px-3">
+            <div class="font-bold text-slate-900">${item.nombre}</div>
+            ${item.notas ? `<div class="text-[11px] text-slate-500 font-normal italic mt-0.5">${item.notas}</div>` : ''}
+          </td>
+          <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-xs bg-slate-100 border">${item.dependencia}</span></td>
+          <td class="py-3 px-3 text-center">${formatearFecha(item.inicio)}</td>
+          <td class="py-3 px-3 text-center font-semibold">${item.plazo} d</td>
+          <td class="py-3 px-3 text-center font-bold text-sky-900 bg-sky-50">${formatearFecha(item.fechaCompromiso)}</td>
+          <td class="py-3 px-3 text-center">${item.cierre ? formatearFecha(item.cierre) : 'En proceso'}</td>
+          <td class="py-3 px-3 text-center">${desfaseHtml}</td>
+          <td class="py-3 px-3 text-center">${item.estatusBadge}</td>
+          <td class="py-3 px-3 text-center no-print">
+            <button onclick="editarTramite('${item.id}')" class="text-sky-600 hover:text-sky-800 p-1"><i class="fa-solid fa-pen-to-square"></i></button>
+            <button onclick="eliminarTramite('${item.id}')" class="text-rose-500 hover:text-rose-700 p-1"><i class="fa-solid fa-trash"></i></button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById("kpi-total").innerText = total;
+      document.getElementById("kpi-entiempo").innerText = enTiempoCount;
+      document.getElementById("kpi-desfasados").innerText = desfasadosCount;
+      document.getElementById("kpi-promedio-desfase").innerText = `+${total > 0 ? (sumaDesfases / total).toFixed(1) : 0} d`;
+
+      renderizarLineaTiempo(listaProcesada, fechaMinima, fechaMaxima);
+    }
+
+    // --- RENDERIZADO DIAGRAMA DE GANTT ---
+    function renderizarLineaTiempo(items, fechaMinStr, fechaMaxStr) {
+      const container = document.getElementById("gantt-container");
+      container.innerHTML = "";
+      if (!items || items.length === 0 || !fechaMinStr || !fechaMaxStr) return;
+
+      let minDate = new Date(fechaMinStr);
+      minDate.setDate(minDate.getDate() - 5);
+      let maxDate = new Date(fechaMaxStr);
+      maxDate.setDate(maxDate.getDate() + 10);
+      const totalMs = maxDate.getTime() - minDate.getTime();
+
+      function calcularPorcentaje(fechaStr) {
+        if (!fechaStr) return 0;
+        let d = new Date(fechaStr);
+        let pct = ((d.getTime() - minDate.getTime()) / totalMs) * 100;
+        return Math.max(0, Math.min(100, pct));
+      }
+
+      const headerDiv = document.createElement("div");
+      headerDiv.className = "flex items-center pb-2 border-b border-slate-200 text-xs font-semibold text-slate-500 mb-2";
+
+      let cursorMes = new Date(minDate);
+      cursorMes.setDate(1);
+      let marcasMeses = [];
+
+      while (cursorMes <= maxDate) {
+        const str = `${cursorMes.getFullYear()}-${String(cursorMes.getMonth()+1).padStart(2,'0')}-01`;
+        const pct = calcularPorcentaje(str);
+        const nombresMeses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+        marcasMeses.push({ pct, label: `${nombresMeses[cursorMes.getMonth()]} ${cursorMes.getFullYear()}` });
+        cursorMes.setMonth(cursorMes.getMonth() + 1);
+      }
+
+      let headerMarcasHtml = marcasMeses.map(m => `
+        <div style="left: ${m.pct}%;" class="absolute transform -translate-x-1/2 flex flex-col items-center">
+          <span class="text-[11px] font-extrabold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 shadow-xs">${m.label}</span>
+          <div class="h-2 w-px bg-slate-400 mt-1"></div>
+        </div>
+      `).join("");
+
+      headerDiv.innerHTML = `
+        <div class="w-64 flex-shrink-0 font-bold text-slate-800 text-xs uppercase tracking-wider">Trámite / Dependencia</div>
+        <div class="flex-1 relative h-8">${headerMarcasHtml}</div>
+      `;
+      container.appendChild(headerDiv);
+
+      items.forEach(t => {
+        const fila = document.createElement("div");
+        fila.className = "flex items-center py-2 hover:bg-slate-50 rounded-xl px-2 transition border-b border-slate-100";
+
+        const pctInicio = calcularPorcentaje(t.inicio);
+        const pctCompromiso = calcularPorcentaje(t.fechaCompromiso);
+        const anchoCompromiso = Math.max(1.5, pctCompromiso - pctInicio);
+
+        let barraDesfaseHtml = "";
+        let fechaFinReal = t.cierre ? t.cierre : (t.desfase > 0 ? getHoyStr() : null);
+
+        if (fechaFinReal) {
+          const pctFinReal = calcularPorcentaje(fechaFinReal);
+          if (pctFinReal > pctCompromiso) {
+            const anchoDesfase = Math.max(1, pctFinReal - pctCompromiso);
+            barraDesfaseHtml = `
+              <div style="left: ${pctCompromiso}%; width: ${anchoDesfase}%;" 
+                   class="absolute top-1/2 -translate-y-1/2 h-5 bg-rose-500 rounded-r flex items-center justify-end pr-1 text-[9px] text-white font-black z-10 shadow-xs"
+                   title="Desfase: +${t.desfase} días hábiles">
+                +${t.desfase}d
+              </div>
+            `;
+          }
+        }
+
+        let guiasMesesHtml = marcasMeses.map(m => `<div style="left: ${m.pct}%;" class="absolute top-0 bottom-0 w-px bg-slate-200/60 pointer-events-none"></div>`).join("");
+
+        fila.innerHTML = `
+          <div class="w-64 flex-shrink-0 pr-4">
+            <div class="font-bold text-slate-800 text-xs truncate" title="${t.nombre}">${t.nombre}</div>
+            <div class="text-[11px] text-slate-500">${t.dependencia} • <span class="font-semibold text-slate-700">${t.plazo} d hábiles</span></div>
+          </div>
+
+          <div class="flex-1 relative h-8 bg-slate-100/80 rounded-lg border border-slate-200/80 overflow-hidden">
+            ${guiasMesesHtml}
+
+            <div style="left: ${pctInicio}%; width: ${anchoCompromiso}%;" 
+                 class="absolute top-1/2 -translate-y-1/2 h-5 bg-sky-500/90 rounded-l flex items-center pl-1.5 text-[9px] text-white font-bold z-10 shadow-xs">
+              <span class="truncate pr-1">${t.plazo}d</span>
+            </div>
+
+            <div style="left: ${pctCompromiso}%;" 
+                 class="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 -ml-1.5 rounded-full bg-slate-800 border-2 border-white shadow-xs z-20 flex items-center justify-center text-[7px] text-white">
+              <i class="fa-solid fa-flag"></i>
+            </div>
+
+            ${barraDesfaseHtml}
+          </div>
+        `;
+        container.appendChild(fila);
+      });
+    }
+
+    // --- MODAL ---
+    function abrirModalNuevoTramite() {
+      document.getElementById("form-tramite").reset();
+      document.getElementById("tramite-id").value = "";
+      document.getElementById("modal-titulo").innerText = "Nuevo Trámite de Obra";
+      document.getElementById("tramite-inicio").value = getHoyStr();
+      document.getElementById("modal-tramite").classList.remove("hidden");
+    }
+
+    function cerrarModal() {
+      document.getElementById("modal-tramite").classList.add("hidden");
+    }
+
+    function editarTramite(id) {
+      const item = tramites.find(t => t.id === id);
+      if (!item) return;
+
+      document.getElementById("tramite-id").value = item.id;
+      document.getElementById("tramite-nombre").value = item.nombre;
+      document.getElementById("tramite-dependencia").value = item.dependencia;
+      document.getElementById("tramite-plazo").value = item.plazo;
+      document.getElementById("tramite-inicio").value = item.inicio;
+      document.getElementById("tramite-cierre").value = item.cierre || "";
+      document.getElementById("tramite-notas").value = item.notas || "";
+
+      document.getElementById("modal-titulo").innerText = "Editar Trámite";
+      document.getElementById("modal-tramite").classList.remove("hidden");
+    }
+
+    // --- EXPORTAR ---
+    function exportarCSV() {
+      if (tramites.length === 0) {
+        alert("No hay datos para exportar");
+        return;
+      }
+
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+      csvContent += "ID,Nombre,Dependencia,Inicio,Plazo (Dias),Cierre Real,Notas\n";
+
+      tramites.forEach(t => {
+        const row = [
+          `"${t.id || ''}"`,
+          `"${t.nombre || ''}"`,
+          `"${t.dependencia || ''}"`,
+          `"${t.inicio || ''}"`,
+          `"${t.plazo || 0}"`,
+          `"${t.cierre || ''}"`,
+          `"${(t.notas || '').replace(/"/g, '""')}"`
+        ];
+        csvContent += row.join(",") + "\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Tramites_Dunaterra_${getHoyStr()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Auto-refresco cada 30 segundos
+    setInterval(() => {
+      cargarDatos();
+    }, 30000);
+
+    window.addEventListener("DOMContentLoaded", () => {
+      cargarDatos();
+    });
+  </script>
+</body>
+</html>
