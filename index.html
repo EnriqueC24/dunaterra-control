@@ -247,8 +247,8 @@
   </div>
 
   <script>
-    // NUEVA URL DESPLEGADA (VERSIÓN 3)
-    const API_URL = "https://script.google.com/macros/s/AKfycbzSCfZZS7Wv1rqSGU35eaVKrky2a4Io7WoPkZ6H_U68MOyyWRGRfSwRuzcFb753l2rVkQ/exec";
+    // URL DESPLEGADA DE LA VERSIÓN 4
+    const API_URL = "https://script.google.com/macros/s/AKfycby00D5Yk9xmWEglaOtyWP0hkpCwT8XJg8NUmWQFW_3gPy_MeQ9CWQPz0dafKaX6LyZObQ/exec";
 
     let tramites = [];
 
@@ -256,7 +256,7 @@
       return localStorage.getItem("dunaterra_pin") || "";
     }
 
-    // --- VALIDACIÓN DE PIN CONTRA SERVIDOR (VERSION REFORZADA) ---
+    // --- VALIDACIÓN DE PIN CONTRA SERVIDOR (CON PESTAÑA DUNATERRA) ---
     async function validarPIN(e) {
       e.preventDefault();
       const pinIngresado = document.getElementById("input-pin").value.trim();
@@ -267,7 +267,7 @@
         btnLogin.disabled = true;
         btnLogin.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Verificando...`;
 
-        const urlFinal = `${API_URL}?pin=${encodeURIComponent(pinIngresado)}`;
+        const urlFinal = `${API_URL}?pin=${encodeURIComponent(pinIngresado)}&hoja=Dunaterra`;
         const res = await fetch(urlFinal, {
           method: "GET",
           redirect: "follow"
@@ -331,7 +331,7 @@
       return match ? match[0] : "";
     }
 
-    // --- CARGAR DATOS DESDE APPS SCRIPT ---
+    // --- CARGAR DATOS DE LA PESTAÑA DUNATERRA ---
     async function cargarDatos() {
       const pin = getPIN();
       if (!pin) return;
@@ -343,7 +343,7 @@
         if (iconSync) iconSync.classList.add("fa-spin");
         estadoUI.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sky-500"></i> Sincronizando...`;
 
-        const res = await fetch(`${API_URL}?pin=${encodeURIComponent(pin)}`, {
+        const res = await fetch(`${API_URL}?pin=${encodeURIComponent(pin)}&hoja=Dunaterra`, {
           method: "GET",
           redirect: "follow"
         });
@@ -379,7 +379,7 @@
       renderizarTodo();
     }
 
-    // --- GUARDADO INSTANTÁNEO ---
+    // --- GUARDADO INSTANTÁNEO EN LA PESTAÑA DUNATERRA ---
     async function guardarTramite(e) {
       e.preventDefault();
       
@@ -431,7 +431,7 @@
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ pin: getPIN(), action, data: payload })
+          body: JSON.stringify({ pin: getPIN(), hoja: "Dunaterra", action, data: payload })
         });
       } catch (err) {
         console.error("Error en sincronización secundaria:", err);
@@ -444,6 +444,7 @@
       errorDiv.classList.remove("hidden");
     }
 
+    // --- ELIMINAR TRÁMITE DE LA PESTAÑA DUNATERRA ---
     async function eliminarTramite(id) {
       if (!confirm("¿Estás seguro de eliminar este trámite?")) return;
 
@@ -455,7 +456,7 @@
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ pin: getPIN(), action: "delete", data: { id } })
+          body: JSON.stringify({ pin: getPIN(), hoja: "Dunaterra", action: "delete", data: { id } })
         });
       } catch (err) {
         console.error("Error al eliminar:", err);
