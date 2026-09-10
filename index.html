@@ -760,27 +760,66 @@
       document.getElementById("modal-tramite").classList.remove("hidden");
     }
 
+    // --- EXPORTAR A CSV CON TODAS LAS COLUMNAS DE LA TABLA ---
     function exportarCSV() {
       if (!tramites || tramites.length === 0) {
         alert("No hay trámites registrados para exportar.");
         return;
       }
 
+      const hoyStr = getHoyStr();
       let csvString = "\uFEFF";
-      csvString += "ID,Nombre del Tramite,Dependencia,Fecha Inicio,Plazo (Dias Habiles),Fecha Cierre Real,Notas\n";
+      
+      // Encabezados exactos a los de la tabla visual de Dunaterra
+      csvString += "ID,Tramite,Dependencia,F. Inicio,Plazo (Hab.),F. Compromiso,F. Cierre Real,Desfase (Dias),Estatus,Notas\n";
 
       tramites.forEach(t => {
+        const inicioNorm = normalizarFecha(t.inicio);
+        const cierreNorm = normalizarFecha(t.cierre);
+        const plazoNum = parseInt(t.plazo, 10) || 0;
+        const fechaCompromiso = sumarDiasHabiles(inicioNorm, plazoNum);
+        
+        let fechaComparar = cierreNorm ? cierreNorm : hoyStr;
+        let desfase = contarDiasHabilesNetos(fechaCompromiso, fechaComparar);
+        let esCerrado = Boolean(cierreNorm);
+        let estatusTexto = "";
+
+        if (esCerrado) {
+          estatusTexto = desfase > 0 ? "Cerrado c/ Desfase" : "Cerrado en Tiempo";
+        } else {
+          estatusTexto = desfase > 0 ? "En Proceso (Vencido)" : "En Proceso";
+        }
+
+        let desfaseTexto = "";
+        if (desfase > 0) desfaseTexto = `+${desfase} d`;
+        else if (desfase < 0) desfaseTexto = `${Math.abs(desfase)} d a favor`;
+        else desfaseTexto = "0 (En tiempo)";
+
         const row = [
           `"${t.id || ''}"`,
           `"${(t.nombre || '').replace(/"/g, '""')}"`,
           `"${(t.dependencia || '').replace(/"/g, '""')}"`,
-          `"${normalizarFecha(t.inicio)}"`,
-          `"${t.plazo || 0}"`,
-          `"${normalizarFecha(t.cierre)}"`,
+          `"${formatearFecha(inicioNorm)}"`,
+          `"${plazoNum}"`,
+          `"${formatearFecha(fechaCompromiso)}"`,
+          `"${cierreNorm ? formatearFecha(cierreNorm) : 'En proceso'}"`,
+          `"${desfaseTexto}"`,
+          `"${estatusTexto}"`,
           `"${(t.notas || '').replace(/"/g, '""')}"`
         ];
         csvString += row.join(",") + "\n";
       });
+
+      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Tramites_Dunaterra_${getHoyStr()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
 
       const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
