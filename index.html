@@ -205,6 +205,9 @@
           <input type="text" id="tramite-notas" placeholder="Ej. Folio de ingreso 12345" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500" />
         </div>
 
+        <!-- MENSAGEM DE ERRO VALIDACION -->
+        <div id="error-validacion" class="hidden text-xs text-rose-600 bg-rose-50 border border-rose-200 p-2.5 rounded-xl font-semibold"></div>
+
         <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
           <button type="button" onclick="cerrarModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition">
             Cancelar
@@ -218,7 +221,7 @@
   </div>
 
   <script>
-    // URL DE TU GOOGLE APPS SCRIPT
+    // URL DE TU APPS SCRIPT
     const API_URL = "https://script.google.com/macros/s/AKfycbz9lwuXB5guo_WfQy5szqZtm6kmse-vYmnuN7nmMD9I8RYBnPN3Ik66ZYiMJOq4E3WC-Q/exec";
 
     let tramites = [];
@@ -249,20 +252,41 @@
       }
     }
 
-    // --- CONEXIÓN API (POST) ---
+    // --- CONEXIÓN API (POST CORREGIDO CON NO-CORS Y VALIDACIONES) ---
     async function guardarTramite(e) {
       e.preventDefault();
+      
       const btnGuardar = document.getElementById("btn-guardar");
       const idExistente = document.getElementById("tramite-id").value;
-      
+      const errorDiv = document.getElementById("error-validacion");
+      errorDiv.classList.add("hidden");
+
+      const nombre = document.getElementById("tramite-nombre").value.trim();
+      const dependencia = document.getElementById("tramite-dependencia").value.trim();
+      const plazo = parseInt(document.getElementById("tramite-plazo").value, 10);
+      const inicio = document.getElementById("tramite-inicio").value;
+      const cierre = document.getElementById("tramite-cierre").value;
+      const notas = document.getElementById("tramite-notas").value.trim();
+
+      // VALIDACIONES
+      if (plazo <= 0 || isNaN(plazo)) {
+        mostrarError("El plazo debe ser un número mayor a 0 días hábiles.");
+        return;
+      }
+
+      if (cierre && cierre < inicio) {
+        mostrarError("La Fecha de Cierre Real no puede ser anterior a la Fecha de Inicio.");
+        return;
+      }
+
       const payload = {
         id: idExistente || "T_" + Date.now(),
-        nombre: document.getElementById("tramite-nombre").value.trim(),
-        dependencia: document.getElementById("tramite-dependencia").value.trim(),
-        plazo: parseInt(document.getElementById("tramite-plazo").value, 10),
-        inicio: document.getElementById("tramite-inicio").value,
-        cierre: document.getElementById("tramite-cierre").value || "",
-        notas: document.getElementById("tramite-notas").value.trim() || ""
+        nombre,
+        dependencia,
+        plazo,
+        inicio,
+        cierre: cierre || "",
+        notas: notas || ""
       };
 
       const action = idExistente ? "update" : "create";
@@ -271,21 +295,33 @@
         btnGuardar.disabled = true;
         btnGuardar.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`;
 
+        // Petición no-cors para evitar congelar el navegador por redirección de Google
         await fetch(API_URL, {
           method: "POST",
+          mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({ action, data: payload })
         });
 
-        cerrarModal();
-        await cargarDatos();
       } catch (err) {
-        alert("Error al guardar el trámite. Por favor intenta de nuevo.");
-        console.error(err);
+        console.error("Error al enviar petición:", err);
       } finally {
+        // Garantizamos cerrar el modal y restablecer interfaz
+        cerrarModal();
         btnGuardar.disabled = false;
         btnGuardar.innerHTML = `<span>Guardar Trámite</span>`;
+        
+        // Recargar datos tras dar un margen breve de procesamiento a Google Sheets
+        setTimeout(() => {
+          cargarDatos();
+        }, 1200);
       }
+    }
+
+    function mostrarError(msg) {
+      const errorDiv = document.getElementById("error-validacion");
+      errorDiv.innerText = msg;
+      errorDiv.classList.remove("hidden");
     }
 
     async function eliminarTramite(id) {
@@ -294,13 +330,16 @@
       try {
         await fetch(API_URL, {
           method: "POST",
+          mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({ action: "delete", data: { id } })
         });
-        await cargarDatos();
       } catch (err) {
-        alert("Error al eliminar el trámite.");
-        console.error(err);
+        console.error("Error al eliminar:", err);
+      } finally {
+        setTimeout(() => {
+          cargarDatos();
+        }, 1200);
       }
     }
 
@@ -569,6 +608,7 @@
     function abrirModalNuevoTramite() {
       document.getElementById("form-tramite").reset();
       document.getElementById("tramite-id").value = "";
+      document.getElementById("error-validacion").classList.add("hidden");
       document.getElementById("modal-titulo").innerText = "Nuevo Trámite de Obra";
       document.getElementById("tramite-inicio").value = getHoyStr();
       document.getElementById("modal-tramite").classList.remove("hidden");
@@ -589,6 +629,7 @@
       document.getElementById("tramite-inicio").value = item.inicio;
       document.getElementById("tramite-cierre").value = item.cierre || "";
       document.getElementById("tramite-notas").value = item.notas || "";
+      document.getElementById("error-validacion").classList.add("hidden");
 
       document.getElementById("modal-titulo").innerText = "Editar Trámite";
       document.getElementById("modal-tramite").classList.remove("hidden");
