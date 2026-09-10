@@ -12,6 +12,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- html2pdf Library para exportar PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
@@ -24,8 +26,8 @@
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen p-4 md:p-6 lg:p-8">
 
-  <!-- CONTENEDOR PRINCIPAL -->
-  <div class="max-w-7xl mx-auto space-y-6">
+  <!-- CONTENEDOR PRINCIPAL PARA EXPORTAR -->
+  <div id="contenido-reporte" class="max-w-7xl mx-auto space-y-6">
 
     <!-- HEADER -->
     <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -50,10 +52,10 @@
           <i class="fa-solid fa-plus"></i> Nuevo Trámite
         </button>
         <button type="button" onclick="exportarCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition inline-flex items-center gap-2">
-          <i class="fa-solid fa-file-excel"></i> Exportar
+          <i class="fa-solid fa-file-excel"></i> Exportar CSV
         </button>
-        <button type="button" onclick="window.print()" class="bg-slate-700 hover:bg-slate-800 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition inline-flex items-center gap-2">
-          <i class="fa-solid fa-print"></i> Imprimir
+        <button type="button" onclick="generarPDF()" class="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition inline-flex items-center gap-2">
+          <i class="fa-solid fa-file-pdf"></i> Generar PDF
         </button>
       </div>
     </header>
@@ -205,7 +207,6 @@
           <input type="text" id="tramite-notas" placeholder="Ej. Folio de ingreso 12345" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500" />
         </div>
 
-        <!-- MENSAGEM DE ERRO VALIDACION -->
         <div id="error-validacion" class="hidden text-xs text-rose-600 bg-rose-50 border border-rose-200 p-2.5 rounded-xl font-semibold"></div>
 
         <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
@@ -221,28 +222,39 @@
   </div>
 
   <script>
-    // URL DE TU APPS SCRIPT
     const API_URL = "https://script.google.com/macros/s/AKfycbz9lwuXB5guo_WfQy5szqZtm6kmse-vYmnuN7nmMD9I8RYBnPN3Ik66ZYiMJOq4E3WC-Q/exec";
 
     let tramites = [];
 
-    // --- CONEXIÓN API (GET) ---
+    // --- NORMALIZACIÓN DE FECHAS (Previene errores NaN) ---
+    function normalizarFecha(f) {
+      if (!f) return "";
+      let str = String(f).trim();
+      if (str.includes("T")) str = str.split("T")[0];
+      const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      return match ? match[0] : "";
+    }
+
+    // --- CARGAR DATOS ---
     async function cargarDatos() {
       const estadoUI = document.getElementById("estado-carga");
       const iconSync = document.getElementById("icon-sync");
       
       try {
         if (iconSync) iconSync.classList.add("fa-spin");
-        estadoUI.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sky-500"></i> Cargando datos...`;
+        estadoUI.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sky-500"></i> Sincronizando...`;
 
         const res = await fetch(API_URL);
         const data = await res.json();
+        
         tramites = data.map(item => ({
           ...item,
+          inicio: normalizarFecha(item.inicio),
+          cierre: normalizarFecha(item.cierre),
           plazo: parseInt(item.plazo, 10) || 0
         }));
+
         estadoUI.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-500"></i> Sincronizado en vivo`;
-        
         renderizarTodo();
       } catch (error) {
         console.error("Error al cargar datos:", error);
@@ -252,23 +264,21 @@
       }
     }
 
-    // --- CONEXIÓN API (POST CORREGIDO CON NO-CORS Y VALIDACIONES) ---
+    // --- GUARDADO INSTANTÁNEO Y OPTIMISTA ---
     async function guardarTramite(e) {
       e.preventDefault();
       
-      const btnGuardar = document.getElementById("btn-guardar");
-      const idExistente = document.getElementById("tramite-id").value;
       const errorDiv = document.getElementById("error-validacion");
       errorDiv.classList.add("hidden");
 
+      const idExistente = document.getElementById("tramite-id").value;
       const nombre = document.getElementById("tramite-nombre").value.trim();
       const dependencia = document.getElementById("tramite-dependencia").value.trim();
       const plazo = parseInt(document.getElementById("tramite-plazo").value, 10);
-      const inicio = document.getElementById("tramite-inicio").value;
-      const cierre = document.getElementById("tramite-cierre").value;
+      const inicio = normalizarFecha(document.getElementById("tramite-inicio").value);
+      const cierre = normalizarFecha(document.getElementById("tramite-cierre").value);
       const notas = document.getElementById("tramite-notas").value.trim();
 
-      // VALIDACIONES
       if (plazo <= 0 || isNaN(plazo)) {
         mostrarError("El plazo debe ser un número mayor a 0 días hábiles.");
         return;
@@ -291,30 +301,27 @@
 
       const action = idExistente ? "update" : "create";
 
-      try {
-        btnGuardar.disabled = true;
-        btnGuardar.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`;
+      // 1. ACTUALIZACIÓN INSTANTÁNEA EN PANTALLA (0.05s)
+      if (idExistente) {
+        const idx = tramites.findIndex(t => t.id === idExistente);
+        if (idx !== -1) tramites[idx] = payload;
+      } else {
+        tramites.push(payload);
+      }
 
-        // Petición no-cors para evitar congelar el navegador por redirección de Google
-        await fetch(API_URL, {
+      renderizarTodo();
+      cerrarModal();
+
+      // 2. ENVÍO A GOOGLE SHEETS EN SEGUNDO PLANO
+      try {
+        fetch(API_URL, {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({ action, data: payload })
         });
-
       } catch (err) {
-        console.error("Error al enviar petición:", err);
-      } finally {
-        // Garantizamos cerrar el modal y restablecer interfaz
-        cerrarModal();
-        btnGuardar.disabled = false;
-        btnGuardar.innerHTML = `<span>Guardar Trámite</span>`;
-        
-        // Recargar datos tras dar un margen breve de procesamiento a Google Sheets
-        setTimeout(() => {
-          cargarDatos();
-        }, 1200);
+        console.error("Error en sincronización secundaria:", err);
       }
     }
 
@@ -324,11 +331,17 @@
       errorDiv.classList.remove("hidden");
     }
 
+    // --- ELIMINACIÓN INSTANTÁNEA ---
     async function eliminarTramite(id) {
       if (!confirm("¿Estás seguro de eliminar este trámite?")) return;
 
+      // 1. Eliminar de pantalla de inmediato
+      tramites = tramites.filter(t => t.id !== id);
+      renderizarTodo();
+
+      // 2. Eliminar en Google Sheets en segundo plano
       try {
-        await fetch(API_URL, {
+        fetch(API_URL, {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -336,17 +349,14 @@
         });
       } catch (err) {
         console.error("Error al eliminar:", err);
-      } finally {
-        setTimeout(() => {
-          cargarDatos();
-        }, 1200);
       }
     }
 
-    // --- CÁLCULOS DE DÍAS HÁBILES ---
+    // --- CÁLCULOS DE DÍAS HÁBILES ROBUSTOS ---
     function sumarDiasHabiles(fechaStr, diasHabiles) {
-      if (!fechaStr || isNaN(diasHabiles)) return null;
-      let [y, m, d] = fechaStr.split("-").map(Number);
+      const fechaLimpia = normalizarFecha(fechaStr);
+      if (!fechaLimpia || isNaN(diasHabiles)) return null;
+      let [y, m, d] = fechaLimpia.split("-").map(Number);
       let fecha = new Date(y, m - 1, d);
       let agregados = 0;
       while (agregados < diasHabiles) {
@@ -361,9 +371,12 @@
     }
 
     function contarDiasHabilesNetos(fechaInicioStr, fechaFinStr) {
-      if (!fechaInicioStr || !fechaFinStr || fechaInicioStr === fechaFinStr) return 0;
-      let [y1, m1, d1] = fechaInicioStr.split("-").map(Number);
-      let [y2, m2, d2] = fechaFinStr.split("-").map(Number);
+      const f1 = normalizarFecha(fechaInicioStr);
+      const f2 = normalizarFecha(fechaFinStr);
+      if (!f1 || !f2 || f1 === f2) return 0;
+      
+      let [y1, m1, d1] = f1.split("-").map(Number);
+      let [y2, m2, d2] = f2.split("-").map(Number);
       let dInicio = new Date(y1, m1 - 1, d1);
       let dFin = new Date(y2, m2 - 1, d2);
       let signo = dFin >= dInicio ? 1 : -1;
@@ -380,9 +393,10 @@
     }
 
     function formatearFecha(fechaStr) {
-      if (!fechaStr) return "-";
+      const fLimpia = normalizarFecha(fechaStr);
+      if (!fLimpia) return "-";
       const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-      const [y, m, d] = fechaStr.split("-");
+      const [y, m, d] = fLimpia.split("-");
       return `${parseInt(d, 10)}/${meses[parseInt(m, 10) - 1]}/${y}`;
     }
 
@@ -405,11 +419,13 @@
       let fechaMaxima = null;
 
       const listaProcesada = tramites.map(t => {
-        const fechaCompromiso = sumarDiasHabiles(t.inicio, parseInt(t.plazo, 10));
-        let fechaComparar = t.cierre ? t.cierre : hoyStr;
+        const inicioNorm = normalizarFecha(t.inicio);
+        const cierreNorm = normalizarFecha(t.cierre);
+        const fechaCompromiso = sumarDiasHabiles(inicioNorm, parseInt(t.plazo, 10));
+        let fechaComparar = cierreNorm ? cierreNorm : hoyStr;
         let desfase = contarDiasHabilesNetos(fechaCompromiso, fechaComparar);
 
-        let esCerrado = Boolean(t.cierre);
+        let esCerrado = Boolean(cierreNorm);
         let estatusBadge = "";
 
         if (esCerrado) {
@@ -432,23 +448,25 @@
 
         sumaDesfases += (desfase > 0 ? desfase : 0);
 
-        [t.inicio, fechaCompromiso, t.cierre || hoyStr].forEach(fStr => {
+        [inicioNorm, fechaCompromiso, cierreNorm || hoyStr].forEach(fStr => {
           if (fStr) {
             if (!fechaMinima || fStr < fechaMinima) fechaMinima = fStr;
             if (!fechaMaxima || fStr > fechaMaxima) fechaMaxima = fStr;
           }
         });
 
-        return { ...t, fechaCompromiso, desfase, esCerrado, estatusBadge };
+        return { ...t, inicio: inicioNorm, cierre: cierreNorm, fechaCompromiso, desfase, esCerrado, estatusBadge };
       });
 
       if (tramites.length > 0) {
         let globalInicioStr = null;
         let globalFinStr = null;
         tramites.forEach(t => {
-          const comp = sumarDiasHabiles(t.inicio, parseInt(t.plazo, 10));
-          const finItem = t.cierre ? t.cierre : (comp > hoyStr ? comp : hoyStr);
-          if (!globalInicioStr || t.inicio < globalInicioStr) globalInicioStr = t.inicio;
+          const ini = normalizarFecha(t.inicio);
+          const cie = normalizarFecha(t.cierre);
+          const comp = sumarDiasHabiles(ini, parseInt(t.plazo, 10));
+          const finItem = cie ? cie : (comp > hoyStr ? comp : hoyStr);
+          if (!globalInicioStr || ini < globalInicioStr) globalInicioStr = ini;
           if (!globalFinStr || finItem > globalFinStr) globalFinStr = finItem;
         });
 
@@ -504,7 +522,7 @@
       renderizarLineaTiempo(listaProcesada, fechaMinima, fechaMaxima);
     }
 
-    // --- RENDERIZADO DIAGRAMA DE GANTT ---
+    // --- DIAGRAMA DE GANTT ---
     function renderizarLineaTiempo(items, fechaMinStr, fechaMaxStr) {
       const container = document.getElementById("gantt-container");
       container.innerHTML = "";
@@ -604,7 +622,7 @@
       });
     }
 
-    // --- MODAL ---
+    // --- FUNCIONES MODAL & EDICIÓN ---
     function abrirModalNuevoTramite() {
       document.getElementById("form-tramite").reset();
       document.getElementById("tramite-id").value = "";
@@ -626,8 +644,8 @@
       document.getElementById("tramite-nombre").value = item.nombre;
       document.getElementById("tramite-dependencia").value = item.dependencia;
       document.getElementById("tramite-plazo").value = item.plazo;
-      document.getElementById("tramite-inicio").value = item.inicio;
-      document.getElementById("tramite-cierre").value = item.cierre || "";
+      document.getElementById("tramite-inicio").value = normalizarFecha(item.inicio);
+      document.getElementById("tramite-cierre").value = normalizarFecha(item.cierre);
       document.getElementById("tramite-notas").value = item.notas || "";
       document.getElementById("error-validacion").classList.add("hidden");
 
@@ -635,39 +653,61 @@
       document.getElementById("modal-tramite").classList.remove("hidden");
     }
 
-    // --- EXPORTAR ---
+    // --- EXPORTAR CSV ---
     function exportarCSV() {
-      if (tramites.length === 0) {
-        alert("No hay datos para exportar");
+      if (!tramites || tramites.length === 0) {
+        alert("No hay trámites registrados para exportar.");
         return;
       }
 
-      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-      csvContent += "ID,Nombre,Dependencia,Inicio,Plazo (Dias),Cierre Real,Notas\n";
+      let csvString = "\uFEFF";
+      csvString += "ID,Nombre del Tramite,Dependencia,Fecha Inicio,Plazo (Dias Habiles),Fecha Cierre Real,Notas\n";
 
       tramites.forEach(t => {
         const row = [
           `"${t.id || ''}"`,
-          `"${t.nombre || ''}"`,
-          `"${t.dependencia || ''}"`,
-          `"${t.inicio || ''}"`,
+          `"${(t.nombre || '').replace(/"/g, '""')}"`,
+          `"${(t.dependencia || '').replace(/"/g, '""')}"`,
+          `"${normalizarFecha(t.inicio)}"`,
           `"${t.plazo || 0}"`,
-          `"${t.cierre || ''}"`,
+          `"${normalizarFecha(t.cierre)}"`,
           `"${(t.notas || '').replace(/"/g, '""')}"`
         ];
-        csvContent += row.join(",") + "\n";
+        csvString += row.join(",") + "\n";
       });
 
-      const encodedUri = encodeURI(csvContent);
+      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
+      link.href = url;
       link.setAttribute("download", `Tramites_Dunaterra_${getHoyStr()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }
 
-    // Auto-refresco cada 30 segundos
+    // --- GENERAR PDF DIRECTO ---
+    function generarPDF() {
+      const elemento = document.getElementById("contenido-reporte");
+      
+      const opciones = {
+        margin: [0.3, 0.3, 0.3, 0.3],
+        filename: `Reporte_Dunaterra_${getHoyStr()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+      };
+
+      // Ocultar botones temporalmente durante la captura
+      document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
+
+      html2pdf().set(opciones).from(elemento).save().then(() => {
+        document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
+      });
+    }
+
+    // Refresco periódico cada 30 segundos
     setInterval(() => {
       cargarDatos();
     }, 30000);
