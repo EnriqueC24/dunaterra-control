@@ -376,6 +376,10 @@
         cierre: normalizarFecha(item.cierre),
         plazo: parseInt(item.plazo, 10) || 0
       }));
+
+      // Ordenar por Fecha de Inicio: Recientes primero
+      tramites.sort((a, b) => new Date(b.inicio) - new Date(a.inicio));
+
       renderizarTodo();
     }
 
