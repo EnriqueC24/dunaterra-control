@@ -381,7 +381,7 @@
       tramites.sort((a, b) => {
         const fechaA = new Date(a.inicio + "T00:00:00").getTime() || 0;
         const fechaB = new Date(b.inicio + "T00:00:00").getTime() || 0;
-        return fechaB - fechaA; 
+        return fechaA - fechaB; 
       });
 
       renderizarTodo();
