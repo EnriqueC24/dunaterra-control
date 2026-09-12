@@ -377,8 +377,12 @@
         plazo: parseInt(item.plazo, 10) || 0
       }));
 
-      // Ordenar por Fecha de Inicio: Recientes primero
-      tramites.sort((a, b) => new Date(b.inicio) - new Date(a.inicio));
+      // Ordenar por Fecha de Inicio: De la más reciente a la más antigua
+      tramites.sort((a, b) => {
+        const fechaA = new Date(a.inicio + "T00:00:00").getTime() || 0;
+        const fechaB = new Date(b.inicio + "T00:00:00").getTime() || 0;
+        return fechaA - fechaB; 
+      });
 
       renderizarTodo();
     }
